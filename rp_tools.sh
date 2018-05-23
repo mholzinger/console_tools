@@ -9,33 +9,12 @@ declare -a github_projects=( \
 )
 
 # THIS SCRIPT
-prog=$( echo $0 | sed 's|^\./||' | awk '{gsub(/\/.*\//,"",$1); print}' )
+prog=${0##*/}
 
 print_line(){
-  printf '=%.0s' {1..80}
+  printf '.%.0s' {1..80}
   echo
 }
-
-# Commands
-
-clone_repos(){
-  total=${#github_projects[*]}
-  printf "${#github_projects[*]} github projects . . .\n"
-  for (( n = 0; n < total; n++ ))
-  do
-    echo "Project [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
-    url=${github_projects[n]}
-    last=${url##*/}
-    bare=${last%%.git}
-    test -e "$bare" || git clone "$url"
-  done
-}
-
-destructive_update(){
-  echo "This is a destructive command!"
-  here=$(pwd);find . -iname '*.git' -type d |while read -r foo;do cd $foo/..;git remote -v;cd $here;done
-}
-
 
 print_usage()
 {
@@ -43,6 +22,45 @@ print_usage()
     echo -e "\t\t[-s show current commit status] [-u update all project repositories]"
     exit;
 }
+
+
+# Git commands
+git_shallow_clone(){
+  git clone --depth=1 "$1"
+}
+
+
+git_remote_update(){
+  git --git-dir="$1"/.git \
+    --work-tree="$1" remote update
+}
+
+
+# Main project commands
+clone_repos(){
+  total=${#github_projects[*]}
+  printf "${#github_projects[*]} github projects listed ..\n"
+  for (( n = 0; n < total; n++ ))
+  do
+    print_line
+    echo "Testing for [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
+    url=${github_projects[n]}
+    last=${url##*/}
+    bare=${last%%.git}
+    if [ -d "$bare" ]; then
+        echo "Info: [$bare] already present -- Action: skipping"
+      else
+        git_shallow_clone "$url"
+    fi
+  done
+}
+
+
+destructive_update(){
+  echo "This is a destructive command!"
+  here=$(pwd);find . -iname '*.git' -type d |while read -r foo;do cd $foo/..;git remote -v;cd $here;done
+}
+
 
 update_listed_git_repos(){
   total=${#github_projects[*]}
@@ -57,36 +75,39 @@ update_listed_git_repos(){
       git --git-dir="$bare"/.git --work-tree="$bare" pull --rebase origin master
     else
       echo "Project ${github_projects[n]} not present. Cloning now..."
-      git clone "$url"
+      git_shallow_clone "$url"
       echo "Project ${github_projects[n]} cloned!"
     fi
     echo
   done
 }
 
+
 show_last_repo_commits(){
   total=${#github_projects[*]}
-  printf "${#github_projects[*]} github projects . . .\n"
+  printf "Looking for ${#github_projects[*]} github projects . . .\n"
   for (( n = 0; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
-    echo "Project: ${bare} [ `echo $n+1|bc`/$total ]"
+    print_line
+    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     if [ -d "$bare" ]; then
       git --git-dir="$bare"/.git \
         --work-tree="$bare" \
         log -1 \
         --pretty=format:"Commit: %Cred%h%nLast commit was %ar: [ %Cblue%ad ]%nMessage: [%Cgreen%s]%nAuthor: %Cred%aN %Cblue<%ae>"
-      git --git-dir="$bare"/.git \
-        --work-tree="$bare" remote update > /dev/null 2>&1
-      echo -n "Status: "
+      git_remote_update "$bare" > /dev/null 2>&1
+      echo -n "Project branch status: "
       git --git-dir="$bare"/.git \
         --work-tree="$bare" status
-      echo
+      else
+        echo "Issue! [${bare}] does not exist in local path [Use ${prog} -c to add]"
     fi
   done
 }
+
 
 # Test for passed parameters, if none, print help text
 if [ "$#" -lt 1 ]; then
@@ -101,7 +122,7 @@ while getopts :cdhsu option; do
   case "${option}" in
     c)
         a=${OPTARG}
-        echo "Step: Building grabbing tools needed for managing everdrives"
+        echo "Cloning all specified project repos into current directory"
         clone_repos
         exit;;
     d)
