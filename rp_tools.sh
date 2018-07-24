@@ -7,6 +7,7 @@ declare -a github_projects=( \
   https://github.com/JakobAir/ViperGC \
   https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak \
   https://github.com/blastrock/pkgj \
+  https://github.com/OtherCrashOverride/go-play \
 )
 
 # THIS SCRIPT
