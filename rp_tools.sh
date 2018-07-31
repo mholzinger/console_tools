@@ -8,6 +8,7 @@ declare -a github_projects=( \
   https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak \
   https://github.com/blastrock/pkgj \
   https://github.com/OtherCrashOverride/go-play \
+  https://github.com/OtherCrashOverride/odroid-go-firmware \
 )
 
 # THIS SCRIPT
