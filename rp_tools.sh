@@ -14,6 +14,8 @@ declare -a github_projects=( \
 # THIS SCRIPT
 prog=${0##*/}
 
+# TODO: bash dependencies tes for jq, curl, wget, git-core
+
 print_line(){
   printf '.%.0s' {1..80}
   echo
@@ -22,6 +24,7 @@ print_line(){
 print_usage()
 {
     echo "usage: "$prog" [-c clone useful git repos] [-d destructive git rebase] [-h help]"
+    echo -e "\t\t[-b show bleeding edge release downloads] [-r show official release downloads]"
     echo -e "\t\t[-s show current commit status] [-u update all project repositories]"
     exit;
 }
@@ -111,9 +114,10 @@ show_last_repo_commits(){
   done
 }
 
-update_releases(){
+
+show_official_releases(){
   # Permutation of this curl command
-  # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/OtherCrashOverride/odroid-go-firmware/releases/latest | grep browser_download_url| awk '{print $2}'
+  # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases/latest | grep browser_download_url| awk '{print $2}'
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} release candidates . . .\n"
   for (( n = 0; n < total; n++ ))
@@ -136,6 +140,32 @@ update_releases(){
   done
 }
 
+show_bleeding_edge_releases(){
+  # Permutation of this curl command
+  # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
+  total=${#github_projects[*]}
+  printf "Looking for ${#github_projects[*]} pre-release posts . . .\n"
+  for (( n = 0; n < total; n++ ))
+  do
+    url=${github_projects[n]}
+    last=${url##*/}
+    bare=${last%%.git}
+    print_line
+    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
+    # convert remote origin to release URI
+    release_api_tag=$( git --git-dir="$bare"/.git \
+          --work-tree="$bare" \
+          remote get-url --all origin|\
+          head -1 |\
+          sed 's/github.com/api.github.com\/repos/g')
+    # Use curl to fetch latest release if available
+    curl -s "$release_api_tag"/releases |\
+      jq '.[0]' -r |\
+      grep browser_download_url|\
+      awk '{print $NF}'
+  done
+}
+
 
 # Test for passed parameters, if none, print help text
 if [ "$#" -lt 1 ]; then
@@ -146,12 +176,17 @@ if [ "$#" -lt 1 ]; then
 fi
 
 # Main processing loop
-while getopts :cdhrsu option; do
+while getopts :bcdhrsu option; do
   case "${option}" in
     c)
-        a=${OPTARG}
+        c=${OPTARG}
         echo "Cloning all specified project repos into current directory"
         clone_repos
+        exit;;
+    b)
+        b=${OPTARG}
+        echo "Checking for bleeding edge releases"
+        show_bleeding_edge_releases
         exit;;
     d)
         a=${OPTARG}
@@ -165,8 +200,8 @@ while getopts :cdhrsu option; do
         exit;;
     r)
         r=${OPTARG}
-        echo "Show releases on github projects"
-        update_releases
+        echo "Show official releases on github projects"
+        show_official_releases
         exit;;
     s)
         u=${OPTARG}
