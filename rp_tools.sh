@@ -111,6 +111,31 @@ show_last_repo_commits(){
   done
 }
 
+update_releases(){
+  # Permutation of this curl command
+  # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/OtherCrashOverride/odroid-go-firmware/releases/latest | grep browser_download_url| awk '{print $2}'
+  total=${#github_projects[*]}
+  printf "Looking for ${#github_projects[*]} release candidates . . .\n"
+  for (( n = 0; n < total; n++ ))
+  do
+    url=${github_projects[n]}
+    last=${url##*/}
+    bare=${last%%.git}
+    print_line
+    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
+    # convert remote origin to release URI
+    release_api_tag=$( git --git-dir="$bare"/.git \
+          --work-tree="$bare" \
+          remote get-url --all origin|\
+          head -1 |\
+          sed 's/github.com/api.github.com\/repos/g')
+    # Use curl to fetch latest release if available
+    curl -s "$release_api_tag"/releases/latest |\
+      grep browser_download_url|\
+      awk '{print $2}'
+  done
+}
+
 
 # Test for passed parameters, if none, print help text
 if [ "$#" -lt 1 ]; then
@@ -121,7 +146,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 # Main processing loop
-while getopts :cdhsu option; do
+while getopts :cdhrsu option; do
   case "${option}" in
     c)
         a=${OPTARG}
@@ -137,6 +162,11 @@ while getopts :cdhsu option; do
     h)
         h=${OPTARG}
         print_usage
+        exit;;
+    r)
+        r=${OPTARG}
+        echo "Show releases on github projects"
+        update_releases
         exit;;
     s)
         u=${OPTARG}
