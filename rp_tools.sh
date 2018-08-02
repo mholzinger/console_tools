@@ -12,15 +12,15 @@ declare -a github_projects=( \
   https://github.com/OtherCrashOverride/doom-odroid-go \
 )
 
+
 # THIS SCRIPT
 prog=${0##*/}
-
-# TODO: bash dependencies tes for jq, curl, wget, git-core
 
 print_line(){
   printf '.%.0s' {1..80}
   echo
 }
+
 
 print_usage()
 {
@@ -135,11 +135,12 @@ show_official_releases(){
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
     # Use curl to fetch latest release if available
-    curl -s "$release_api_tag"/releases/latest |\
+    smarter_curl "$release_api_tag"/releases/latest |\
       grep browser_download_url|\
       awk '{print $2}'
   done
 }
+
 
 show_bleeding_edge_releases(){
   # Permutation of this curl command
@@ -160,11 +161,30 @@ show_bleeding_edge_releases(){
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
     # Use curl to fetch latest release if available
-    curl -s "$release_api_tag"/releases |\
+    smarter_curl "$release_api_tag"/releases |\
       jq '.[0]' -r |\
       grep browser_download_url|\
       awk '{print $NF}'
   done
+}
+
+
+setup_git_creds(){
+  # TODO: bash dependencies tes for jq, curl, wget, git-core
+  if [ -f "$HOME/.netrc" ]; then
+    export GITHUB_TOKEN=$(grep github.com "$HOME"/.netrc|awk '{print $NF}')
+  else
+    echo "No github token found for user, calls to github will be unauthenticated, which may be rate limited"
+  fi
+}
+
+
+smarter_curl(){
+  if [ -n "$GITHUB_TOKEN" ]; then
+    curl -H "Authorization: token $GITHUB_TOKEN" -s "$1"
+  else
+    curl -s "$1"
+  fi
 }
 
 
@@ -175,6 +195,8 @@ if [ "$#" -lt 1 ]; then
     echo "[ ${github_projects[*]##*/} ]"
     echo "Try '"$prog" -h' for more information."
 fi
+
+setup_git_creds
 
 # Main processing loop
 while getopts :bcdhrsu option; do
