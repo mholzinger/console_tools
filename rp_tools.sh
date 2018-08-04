@@ -40,7 +40,11 @@ download_github_release(){
 
   filename=$(basename "$url")
   tag=$(echo $url |sed s/$filename//g | tr '/' ' '|awk '{print $NF}')
-  wget "$url" -P "$release"/"$project"/"$tag"/"$filename"
+  if [ ! -f "$release"/"$project"/"$tag"/"$filename" ]; then
+    wget -q --show-progress "$url" -P "$release"/"$project"/"$tag"
+  else
+    echo "File exists! Skipping! [ ./$release/$project/$filename ]"
+  fi
 }
 
 
@@ -135,10 +139,22 @@ show_official_releases(){
           remote get-url --all origin|\
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
+
+    list=$(mktemp)
+
     # Use curl to fetch latest release if available
     smarter_curl "$release_api_tag"/releases/latest |\
       grep browser_download_url|\
-      awk '{print $2}'
+      awk '{print $2}' >> $list
+
+    # Print list out
+    cat $list
+
+    # Download these releases!
+    for files in $( cat $list )
+    do
+      download_github_release "$files" "$bare"/official-releases
+    done
   done
 }
 
@@ -176,9 +192,7 @@ show_bleeding_edge_releases(){
     # Download these releases!
     for files in $( cat $list )
     do
-      echo "got here"
-      echo $files
-      download_github_release "$files" "$bare"
+      download_github_release "$files" "$bare"/all-releases
     done
   done
 }
