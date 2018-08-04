@@ -1,18 +1,9 @@
 #!/bin/bash
 
 # TODO:Add more github repos to this array!
-declare -a github_projects=( \
-  https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database \
-  https://github.com/RedGuyyyy/sd2snes \
-  https://github.com/JakobAir/ViperGC \
-  https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak \
-  https://github.com/blastrock/pkgj \
-  https://github.com/OtherCrashOverride/go-play \
-  https://github.com/OtherCrashOverride/odroid-go-firmware \
-  https://github.com/OtherCrashOverride/doom-odroid-go \
-  https://github.com/OtherCrashOverride/stella-odroid-go \
-)
+# declare -a github_projects$()
 
+config=./settings.txt
 
 # THIS SCRIPT
 prog=${0##*/}
@@ -34,7 +25,7 @@ print_usage()
 
 # Git commands
 git_shallow_clone(){
-  git clone --depth=1 "$1"
+  git clone --depth=1 "$1" "$2"
 }
 
 
@@ -48,17 +39,17 @@ git_remote_update(){
 clone_repos(){
   total=${#github_projects[*]}
   printf "${#github_projects[*]} github projects listed ..\n"
-  for (( n = 0; n < total; n++ ))
+  for (( n = 1; n < total; n++ ))
   do
     print_line
     echo "Testing for [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
-    if [ -d "$bare" ]; then
-        echo "Info: [$bare] already present -- Action: skipping"
+    if [ -d "$source"/"$bare" ]; then
+        echo "Info: [$source/$bare] already present -- Action: skipping"
       else
-        git_shallow_clone "$url"
+        git_shallow_clone "$url" "$source"/"$bare"
     fi
   done
 }
@@ -73,17 +64,17 @@ destructive_update(){
 update_listed_git_repos(){
   total=${#github_projects[*]}
   printf "${#github_projects[*]} github projects . . .\n"
-  for (( n = 0; n < total; n++ ))
+  for (( n = 1; n < total; n++ ))
   do
     echo "Updating project [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
-    if [ -d "$bare" ]; then
-      git --git-dir="$bare"/.git --work-tree="$bare" pull --rebase origin master
+    if [ -d "$source"/"$bare" ]; then
+      git --git-dir="$source"/"$bare"/.git --work-tree="$source"/"$bare" pull --rebase origin master
     else
       echo "Project ${github_projects[n]} not present. Cloning now..."
-      git_shallow_clone "$url"
+      git_shallow_clone "$url" "$source"/"$bare"
       echo "Project ${github_projects[n]} cloned!"
     fi
     echo
@@ -94,24 +85,24 @@ update_listed_git_repos(){
 show_last_repo_commits(){
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} github projects . . .\n"
-  for (( n = 0; n < total; n++ ))
+  for (( n = 1; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
     print_line
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
-    if [ -d "$bare" ]; then
-      git --git-dir="$bare"/.git \
-        --work-tree="$bare" \
+    if [ -d "$source"/"$bare" ]; then
+      git --git-dir="$source"/"$bare"/.git \
+        --work-tree="$source"/"$bare" \
         log -1 \
         --pretty=format:"Commit: %Cred%h%nLast commit was %ar: [ %Cblue%ad ]%nMessage: [%Cgreen%s]%nAuthor: %Cred%aN %Cblue<%ae>"
-      git_remote_update "$bare" > /dev/null 2>&1
+      git_remote_update "$source"/"$bare" > /dev/null 2>&1
       echo -n "Project branch status: "
-      git --git-dir="$bare"/.git \
-        --work-tree="$bare" status
+      git --git-dir="$source"/"$bare"/.git \
+        --work-tree="$source"/"$bare" status
       else
-        echo "Issue! [${bare}] does not exist in local path [Use ${prog} -c to add]"
+        echo "Issue! [${source}/${bare}] does not exist in local path [Use ${prog} -c to add]"
     fi
   done
 }
@@ -122,7 +113,7 @@ show_official_releases(){
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases/latest | grep browser_download_url| awk '{print $2}'
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} release candidates . . .\n"
-  for (( n = 0; n < total; n++ ))
+  for (( n = 1; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
@@ -130,8 +121,8 @@ show_official_releases(){
     print_line
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     # convert remote origin to release URI
-    release_api_tag=$( git --git-dir="$bare"/.git \
-          --work-tree="$bare" \
+    release_api_tag=$( git --git-dir="$source"/"$bare"/.git \
+          --work-tree="$source"/"$bare" \
           remote get-url --all origin|\
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
@@ -148,7 +139,7 @@ show_bleeding_edge_releases(){
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} pre-release posts . . .\n"
-  for (( n = 0; n < total; n++ ))
+  for (( n = 1; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
@@ -156,8 +147,8 @@ show_bleeding_edge_releases(){
     print_line
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     # convert remote origin to release URI
-    release_api_tag=$( git --git-dir="$bare"/.git \
-          --work-tree="$bare" \
+    release_api_tag=$( git --git-dir="$source"/"$bare"/.git \
+          --work-tree="$source"/"$bare" \
           remote get-url --all origin|\
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
@@ -189,6 +180,20 @@ smarter_curl(){
 }
 
 
+config_sanity(){
+  #TODO: Fix section parsing
+  if [ -z "$source" ]; then
+    "Error: No source folder set! Set source path in $config under section [source]"
+    exit
+  fi
+
+  if [ -z "$release" ]; then
+    "Error: No source folder set! Set release path in $config under section [release]"
+    exit
+  fi
+}
+
+# Begin! main()
 # Test for passed parameters, if none, print help text
 if [ "$#" -lt 1 ]; then
     echo $prog": no arguments provided"
@@ -198,6 +203,19 @@ if [ "$#" -lt 1 ]; then
 fi
 
 setup_git_creds
+
+# Parse config file
+section=github
+parsed_list=$( awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' )
+github_projects=($parsed_list)
+
+section=release
+release=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
+
+section=source
+source=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
+
+config_sanity
 
 # Main processing loop
 while getopts :bcdhrsu option; do

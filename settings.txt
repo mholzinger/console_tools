@@ -1,0 +1,25 @@
+# Path for `source` repositories
+[source]
+src
+
+# Path for `release` downloads associated with repositories
+[release]
+download
+
+[github]
+https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database
+https://github.com/RedGuyyyy/sd2snes
+https://github.com/JakobAir/ViperGC
+https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak
+https://github.com/blastrock/pkgj
+https://github.com/OtherCrashOverride/go-play
+https://github.com/OtherCrashOverride/odroid-go-firmware
+https://github.com/OtherCrashOverride/doom-odroid-go
+https://github.com/OtherCrashOverride/stella-odroid-go
+https://github.com/OtherCrashOverride/prosystem-odroid-go
+
+[bitbucket]
+https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator/downloads/
+
+[big_projects]
+https://github.com/OtherCrashOverride/MicroPython_ESP32_psRAM_LoBo-odroid-go
