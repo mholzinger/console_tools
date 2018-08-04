@@ -10,6 +10,7 @@ declare -a github_projects=( \
   https://github.com/OtherCrashOverride/go-play \
   https://github.com/OtherCrashOverride/odroid-go-firmware \
   https://github.com/OtherCrashOverride/doom-odroid-go \
+  https://github.com/OtherCrashOverride/stella-odroid-go \
 )
 
 
