@@ -34,6 +34,15 @@ git_remote_update(){
     --work-tree="$1" remote update
 }
 
+download_github_release(){
+  url=$(echo $1 | sed 's/"//g')
+  project="$2"
+
+  filename=$(basename "$url")
+  tag=$(echo $url |sed s/$filename//g | tr '/' ' '|awk '{print $NF}')
+  wget "$url" -P "$release"/"$project"/"$tag"/"$filename"
+}
+
 
 # Main project commands
 clone_repos(){
@@ -152,11 +161,25 @@ show_bleeding_edge_releases(){
           remote get-url --all origin|\
           head -1 |\
           sed 's/github.com/api.github.com\/repos/g')
+
+    list=$(mktemp)
+
     # Use curl to fetch latest release if available
     smarter_curl "$release_api_tag"/releases |\
       jq '.[0]' -r |\
       grep browser_download_url|\
-      awk '{print $NF}'
+      awk '{print $NF}' >> $list
+
+    # Print list out
+    cat $list
+
+    # Download these releases!
+    for files in $( cat $list )
+    do
+      echo "got here"
+      echo $files
+      download_github_release "$files" "$bare"
+    done
   done
 }
 
@@ -192,6 +215,7 @@ config_sanity(){
     exit
   fi
 }
+
 
 # Begin! main()
 # Test for passed parameters, if none, print help text
