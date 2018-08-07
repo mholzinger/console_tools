@@ -17,6 +17,7 @@ https://github.com/OtherCrashOverride/odroid-go-firmware
 https://github.com/OtherCrashOverride/doom-odroid-go
 https://github.com/OtherCrashOverride/stella-odroid-go
 https://github.com/OtherCrashOverride/prosystem-odroid-go
+https://github.com/rosarior/Rocket-Launcher
 
 [bitbucket]
 https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator/downloads/
