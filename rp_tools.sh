@@ -160,11 +160,20 @@ show_official_releases(){
 
 
 show_bleeding_edge_releases(){
+  # TODO: Use jq to parse for anything not marked as release - this prevents duplicate downloads
   # Permutation of this curl command
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
+
+  # State all repos
+  printf "[${#all_git_repos[*]}] repos total. "
+  printf "[${#github_projects[*]}] github projects. "
+  printf "[${#bitbucket_projects[*]}] bitbucket projects.\n\n"
+  printf "Looking for any most recently posted pre-release download. . .\n"
+
+  # Start with github
   total=${#github_projects[*]}
-  printf "Looking for ${#github_projects[*]} pre-release posts . . .\n"
-  for (( n = 1; n < total; n++ ))
+  printf "Step: github.com - [${#github_projects[*]}] repo(s) . . .\n"
+  for (( n = 0; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
@@ -185,6 +194,37 @@ show_bleeding_edge_releases(){
       jq '.[0]' -r |\
       grep browser_download_url|\
       awk '{print $NF}' >> $list
+
+    # Print list out
+    cat $list
+
+    # Download these releases!
+    for files in $( cat $list )
+    do
+      download_github_release "$files" "$bare"/all-releases
+    done
+  done
+
+  # Start with github
+  total=${#bitbucket_projects[*]}
+  echo
+  printf "Step: bitbucket.org - [${#bitbucket_projects[*]}] repo(s) . . .\n"
+  for (( n = 0; n < total; n++ ))
+  do
+    url=${bitbucket_projects[n]}
+    last=${url##*/}
+    bare=${last%%.git}
+    print_line
+    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
+    # convert remote origin to release URI
+    release_api_tag=$( echo $url |\
+        sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
+
+    list=$(mktemp)
+
+    # Use curl to fetch latest release if available
+    curl -s -L "$release_api_tag"/downloads |\
+      jq '.values[].links[].href' >> $list
 
     # Print list out
     cat $list
