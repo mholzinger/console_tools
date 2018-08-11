@@ -50,13 +50,13 @@ download_github_release(){
 
 # Main project commands
 clone_repos(){
-  total=${#github_projects[*]}
-  printf "${#github_projects[*]} github projects listed ..\n"
-  for (( n = 1; n < total; n++ ))
+  total=${#all_git_repos[*]}
+  printf "${#all_git_repos[*]} github projects listed ..\n"
+  for (( n = 0; n < total; n++ ))
   do
     print_line
-    echo "Testing for [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
-    url=${github_projects[n]}
+    echo "Testing for [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
+    url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
     if [ -d "$source"/"$bare" ]; then
@@ -75,20 +75,20 @@ destructive_update(){
 
 
 update_listed_git_repos(){
-  total=${#github_projects[*]}
-  printf "${#github_projects[*]} github projects . . .\n"
-  for (( n = 1; n < total; n++ ))
+  total=${#all_git_repos[*]}
+  printf "${#all_git_repos[*]} github projects . . .\n"
+  for (( n = 0; n < total; n++ ))
   do
-    echo "Updating project [ `echo $n+1|bc`/$total ] - ${github_projects[n]}"
-    url=${github_projects[n]}
+    echo "Updating project [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
+    url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
     if [ -d "$source"/"$bare" ]; then
       git --git-dir="$source"/"$bare"/.git --work-tree="$source"/"$bare" pull --rebase origin master
     else
-      echo "Project ${github_projects[n]} not present. Cloning now..."
+      echo "Project ${all_git_repos[n]} not present. Cloning now..."
       git_shallow_clone "$url" "$source"/"$bare"
-      echo "Project ${github_projects[n]} cloned!"
+      echo "Project ${all_git_repos[n]} cloned!"
     fi
     echo
   done
@@ -96,11 +96,11 @@ update_listed_git_repos(){
 
 
 show_last_repo_commits(){
-  total=${#github_projects[*]}
-  printf "Looking for ${#github_projects[*]} github projects . . .\n"
-  for (( n = 1; n < total; n++ ))
+  total=${#all_git_repos[*]}
+  printf "Looking for ${#all_git_repos[*]} github projects . . .\n"
+  for (( n = 0; n < total; n++ ))
   do
-    url=${github_projects[n]}
+    url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
     print_line
@@ -198,7 +198,7 @@ show_bleeding_edge_releases(){
 }
 
 
-setup_git_creds(){
+setup_github_creds(){
   # TODO: bash dependencies tes for jq, curl, wget, git-core
   if [ -f "$HOME/.netrc" ]; then
     export GITHUB_TOKEN=$(grep github.com "$HOME"/.netrc|awk '{print $NF}')
@@ -240,12 +240,21 @@ if [ "$#" -lt 1 ]; then
     echo "Try '"$prog" -h' for more information."
 fi
 
-setup_git_creds
+setup_github_creds
 
 # Parse config file
 section=github
 parsed_list=$( awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' )
-github_projects=($parsed_list)
+# Delete the section header from the array
+github_projects=( "${parsed_list[@]/\[$section\]}" )
+
+section=bitbucket
+parsed_list=$( awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' )
+# Delete the section header from the array
+bitbucket_projects=( "${parsed_list[@]/\[$section\]}" )
+
+# Merge all arrays here!
+all_git_repos=( "${github_projects[@]}" "${bitbucket_projects[@]}" )
 
 section=release
 release=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
