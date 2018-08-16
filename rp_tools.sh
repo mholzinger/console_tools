@@ -55,6 +55,7 @@ clone_repos(){
   for (( n = 0; n < total; n++ ))
   do
     print_line
+    echo debug ${all_git_repos[n]}
     echo "Testing for [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
     url=${all_git_repos[n]}
     last=${url##*/}
@@ -284,14 +285,10 @@ setup_github_creds
 
 # Parse config file
 section=github
-parsed_list=$( awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' )
-# Delete the section header from the array
-github_projects=( "${parsed_list[@]/\[$section\]}" )
+IFS=$'\r\n' GLOBIGNORE='*' command eval  'github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))'
 
 section=bitbucket
-parsed_list=$( awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' )
-# Delete the section header from the array
-bitbucket_projects=( "${parsed_list[@]/\[$section\]}" )
+IFS=$'\r\n' GLOBIGNORE='*' command eval  'bitbucket_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))'
 
 # Merge all arrays here!
 all_git_repos=( "${github_projects[@]}" "${bitbucket_projects[@]}" )
