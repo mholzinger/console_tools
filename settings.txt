@@ -23,5 +23,7 @@ https://github.com/Schuemi/fMSX-go
 [bitbucket]
 https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator
 
+[gitlab]
+
 [big_projects]
 https://github.com/OtherCrashOverride/MicroPython_ESP32_psRAM_LoBo-odroid-go
