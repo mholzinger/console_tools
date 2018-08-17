@@ -283,12 +283,15 @@ fi
 
 setup_github_creds
 
+# This is for file globbing and array setting
+IFS=$'\r\n' GLOBIGNORE='*'
+
 # Parse config file
 section=github
-IFS=$'\r\n' GLOBIGNORE='*' command eval  'github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))'
+github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
 
 section=bitbucket
-IFS=$'\r\n' GLOBIGNORE='*' command eval  'bitbucket_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))'
+bitbucket_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
 
 # Merge all arrays here!
 all_git_repos=( "${github_projects[@]}" "${bitbucket_projects[@]}" )
