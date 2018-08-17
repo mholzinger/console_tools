@@ -31,6 +31,7 @@ git_remote_update(){
     --work-tree="$1" remote update
 }
 
+
 download_github_release(){
   url=$(echo $1 | sed 's/"//g')
   project="$2"
@@ -52,7 +53,6 @@ clone_repos(){
   for (( n = 0; n < total; n++ ))
   do
     print_line
-    echo debug ${all_git_repos[n]}
     echo "Testing for [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
     url=${all_git_repos[n]}
     last=${url##*/}
@@ -64,6 +64,7 @@ clone_repos(){
     fi
   done
 }
+
 
 update_listed_git_repos(){
 
@@ -141,7 +142,7 @@ show_official_releases(){
     list=$(mktemp)
 
     # Use curl to fetch latest release if available
-    smarter_curl "$release_api_tag"/releases/latest |\
+    github_curl "$release_api_tag"/releases/latest |\
       grep browser_download_url|\
       awk '{print $2}' >> $list
 
@@ -189,7 +190,7 @@ show_bleeding_edge_releases(){
     list=$(mktemp)
 
     # Use curl to fetch latest release if available
-    smarter_curl "$release_api_tag"/releases |\
+    github_curl "$release_api_tag"/releases |\
       jq '.[0]' -r |\
       grep browser_download_url|\
       awk '{print $NF}' >> $list
@@ -247,7 +248,7 @@ setup_github_creds(){
 }
 
 
-smarter_curl(){
+github_curl(){
   if [ -n "$GITHUB_TOKEN" ]; then
     curl -H "Authorization: token $GITHUB_TOKEN" -s "$1"
   else
@@ -269,26 +270,33 @@ config_sanity(){
   fi
 }
 
+
+print_array(){
+  arr=("${!1}")
+  echo "[${#arr[@]}] $2"
+  for i in ${arr[@]}
+  do
+    printf "    %s\n" $i
+  done
+}
+
+
 list_repos(){
   printf "Listing [${#all_git_repos[@]}] remote git repositories [$config]\n"
   print_line
-
-  echo "[${#github_projects[@]}] github.com projects"
-  for i in ${github_projects[@]};do printf "    %s\n" $i;done
-
-  echo "[${#bitbucket_projects[@]}] bitbucket.org projects"
-  for i in ${bitbucket_projects[@]};do printf "    %s\n" $i;done
-
-  echo "[${#gitlab_projects[@]}] gitlab.com projects"
-  for i in ${gitlab_projects[@]};do printf "    %s\n" $i;done
+  print_array "github_projects[@]" "github.com projects"
+  echo
+  print_array "bitbucket_projects[@]" "bitbucket.org projects"
+  echo
+  print_array "gitlab_projects[@]" "gitlab.com projects"
 }
+
 
 # Begin! main()
 # Test for passed parameters, if none, print help text
 if [ "$#" -lt 1 ]; then
     echo $prog": no arguments provided"
-    echo "This tool clones the following github projects: "
-    echo "[ ${github_projects[*]##*/} ]"
+    echo "This tool clones github projects from [$config]: "
     echo "Try '"$prog" -h' for more information."
 fi
 
@@ -346,7 +354,6 @@ while getopts :bchlrsu option; do
     u)
         update_listed_git_repos
         exit;;
-
     *)
         # Evaluate passed parameters, if none display DNS and exit with help statement
         echo $prog: illegal option -- ${OPTARG}
