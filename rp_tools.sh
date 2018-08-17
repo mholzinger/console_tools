@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# TODO:Add more github repos to this array!
-# declare -a github_projects$()
-
 config=./settings.txt
 
 # THIS SCRIPT
@@ -16,7 +13,7 @@ print_line(){
 
 print_usage()
 {
-    echo "usage: "$prog" [-c clone useful git repos] [-d destructive git rebase] [-h help]"
+    echo "usage: "$prog" [-c clone useful git repos] [-h help] [-l list repos in settings.txt]"
     echo -e "\t\t[-b show bleeding edge release downloads] [-r show official release downloads]"
     echo -e "\t\t[-s show current commit status] [-u update all project repositories]"
     exit;
@@ -68,16 +65,11 @@ clone_repos(){
   done
 }
 
-
-destructive_update(){
-  echo "This is a destructive command!"
-  here=$(pwd);find . -iname '*.git' -type d |while read -r foo;do cd $foo/..;git remote -v;cd $here;done
-}
-
-
 update_listed_git_repos(){
+
   total=${#all_git_repos[*]}
   printf "${#all_git_repos[*]} github projects . . .\n"
+
   for (( n = 0; n < total; n++ ))
   do
     echo "Updating project [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
@@ -99,12 +91,15 @@ update_listed_git_repos(){
 show_last_repo_commits(){
   total=${#all_git_repos[*]}
   printf "Looking for ${#all_git_repos[*]} github projects . . .\n"
+
   for (( n = 0; n < total; n++ ))
   do
     url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
+
     print_line
+
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     if [ -d "$source"/"$bare" ]; then
       git --git-dir="$source"/"$bare"/.git \
@@ -132,7 +127,9 @@ show_official_releases(){
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
+
     print_line
+
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     # convert remote origin to release URI
     release_api_tag=$( git --git-dir="$source"/"$bare"/.git \
@@ -174,6 +171,7 @@ show_bleeding_edge_releases(){
   # Start with github
   total=${#github_projects[*]}
   printf "Step: github.com - [${#github_projects[*]}] repo(s) . . .\n"
+
   for (( n = 0; n < total; n++ ))
   do
     url=${github_projects[n]}
@@ -271,6 +269,19 @@ config_sanity(){
   fi
 }
 
+list_repos(){
+  printf "Listing [${#all_git_repos[@]}] remote git repositories [$config]\n"
+  print_line
+
+  echo "[${#github_projects[@]}] github.com projects"
+  for i in ${github_projects[@]};do printf "    %s\n" $i;done
+
+  echo "[${#bitbucket_projects[@]}] bitbucket.org projects"
+  for i in ${bitbucket_projects[@]};do printf "    %s\n" $i;done
+
+  echo "[${#gitlab_projects[@]}] gitlab.com projects"
+  for i in ${gitlab_projects[@]};do printf "    %s\n" $i;done
+}
 
 # Begin! main()
 # Test for passed parameters, if none, print help text
@@ -293,6 +304,9 @@ github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$sec
 section=bitbucket
 bitbucket_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
 
+section=gitlab
+gitlab_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
+
 # Merge all arrays here!
 all_git_repos=( "${github_projects[@]}" "${bitbucket_projects[@]}" )
 
@@ -305,40 +319,31 @@ source=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
 config_sanity
 
 # Main processing loop
-while getopts :bcdhrsu option; do
+while getopts :bchlrsu option; do
   case "${option}" in
     c)
-        c=${OPTARG}
         echo "Cloning all specified project repos into current directory"
         clone_repos
         exit;;
     b)
-        b=${OPTARG}
         echo "Checking for bleeding edge releases"
         show_bleeding_edge_releases
         exit;;
-    d)
-        a=${OPTARG}
-        echo "Destructive! Finds all repos in this path and updates to latest master branch commit"
-        echo "Destructive assumes no changes exist locally for repositories"
-        destructive_update
-        exit;;
     h)
-        h=${OPTARG}
         print_usage
         exit;;
+    l)
+        list_repos
+        exit;;
     r)
-        r=${OPTARG}
         echo "Show official releases on github projects"
         show_official_releases
         exit;;
     s)
-        u=${OPTARG}
         echo "Show last commit entry for all repos"
         show_last_repo_commits
         exit;;
     u)
-        u=${OPTARG}
         update_listed_git_repos
         exit;;
 
@@ -346,6 +351,5 @@ while getopts :bcdhrsu option; do
         # Evaluate passed parameters, if none display DNS and exit with help statement
         echo $prog: illegal option -- ${OPTARG}
         print_usage
-        ;;
   esac
 done
