@@ -131,7 +131,7 @@ download_official_releases(){
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases/latest | grep browser_download_url| awk '{print $2}'
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} release candidates . . .\n"
-  for (( n = 1; n < total; n++ ))
+  for (( n = 0; n < total; n++ ))
   do
     url=${github_projects[n]}
     last=${url##*/}
@@ -140,7 +140,7 @@ download_official_releases(){
 
     print_line
 
-    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
+    echo "Checking [ `echo $n+1|bc`/$total ]- ${bare} (${git_user}).."
     # convert remote origin to release URI
     release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
@@ -174,13 +174,12 @@ download_bleeding_edge_releases(){
   printf "[${#bitbucket_projects[*]}] bitbucket projects.\n\n"
   printf "Looking for any most recently posted pre-release download. . .\n"
 
-  # Start with github
-  total=${#github_projects[*]}
-  printf "Step: github.com - [${#github_projects[*]}] repo(s) . . .\n"
+  total=${#all_git_repos[*]}
+  printf "Examining - [${#all_git_repos[*]}] repo(s) . . .\n"
 
   for (( n = 0; n < total; n++ ))
   do
-    url=${github_projects[n]}
+    url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -189,16 +188,30 @@ download_bleeding_edge_releases(){
 
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} (${git_user}).."
 
-    # convert remote origin to release URI
-    release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
-
     list=$(mktemp)
 
-    # Use curl to fetch latest release if available
-    github_curl "$release_api_tag"/releases |\
-      jq '.[0]' -r |\
-      grep browser_download_url|\
-      awk '{print $NF}' >> $list
+    if [[ "$url" = *"github"* ]]; then
+      # convert remote origin to release URI
+      release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
+
+      # Use curl to fetch latest release if available
+      github_curl "$release_api_tag"/releases |\
+        jq '.[0]' -r |\
+        grep browser_download_url|\
+        awk '{print $NF}' >> $list
+
+    elif [[ "$url" = *"bitbucket"* ]]; then
+      # convert remote origin to release URI
+      release_api_tag=$( echo $url |\
+          sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
+
+          # Use curl to fetch latest release if available
+          curl -s -L "$release_api_tag"/downloads |\
+            jq '.values[].links[].href' >> $list
+
+    elif [[ "$url" = *"gitlab"* ]]; then
+      echo "gitlab"
+    fi
 
     # Print list out
     cat $list
@@ -208,39 +221,7 @@ download_bleeding_edge_releases(){
     do
       download_github_release "$files" "$git_user"/"$bare"/all-releases
     done
-  done
 
-  # move on to bitbucket
-  total=${#bitbucket_projects[*]}
-  echo
-  printf "Step: bitbucket.org - [${#bitbucket_projects[*]}] repo(s) . . .\n"
-  for (( n = 0; n < total; n++ ))
-  do
-    url=${bitbucket_projects[n]}
-    last=${url##*/}
-    bare=${last%%.git}
-    git_user=$(echo "${url//// }"| awk '{print $3}')
-
-    print_line
-    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
-    # convert remote origin to release URI
-    release_api_tag=$( echo $url |\
-        sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
-
-    list=$(mktemp)
-
-    # Use curl to fetch latest release if available
-    curl -s -L "$release_api_tag"/downloads |\
-      jq '.values[].links[].href' >> $list
-
-    # Print list out
-    cat $list
-
-    # Download these releases!
-    for files in $( cat $list )
-    do
-      download_github_release "$files" "$git_user"/"$bare"/all-releases
-    done
   done
 }
 
@@ -334,7 +315,7 @@ source=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
 config_sanity
 
 # Main processing loop
-while getopts :bchlrsu option; do
+while getopts :bchlrsuz option; do
   case "${option}" in
     c)
         echo "Cloning all specified project repos into current directory"
@@ -360,6 +341,9 @@ while getopts :bchlrsu option; do
         exit;;
     u)
         update_listed_git_repos
+        exit;;
+    z)
+        z_download
         exit;;
     *)
         # Evaluate passed parameters, if none display DNS and exit with help statement
