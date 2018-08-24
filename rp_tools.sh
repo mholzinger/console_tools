@@ -57,10 +57,14 @@ clone_repos(){
     url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
-    if [ -d "$source"/"$bare" ]; then
-        echo "Info: [$source/$bare] already present -- Action: skipping"
+
+    # Hack to get username
+    git_user=$(echo "${url//// }"| awk '{print $3}')
+
+    if [ -d "$source"/"$git_user"/"$bare" ]; then
+        echo "Info: [$source/$git_user/$bare] already present -- Action: skipping"
       else
-        git_shallow_clone "$url" "$source"/"$bare"
+        git_shallow_clone "$url"  "$source"/"$git_user"/"$bare"
     fi
   done
 }
@@ -77,11 +81,14 @@ update_listed_git_repos(){
     url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
-    if [ -d "$source"/"$bare" ]; then
-      git --git-dir="$source"/"$bare"/.git --work-tree="$source"/"$bare" pull --rebase origin master
+    git_user=$(echo "${url//// }"| awk '{print $3}')
+
+    if [ -d "$source"/"$git_user"/"$bare" ]; then
+      git --git-dir="$source"/"$git_user"/"$bare"/.git \
+        --work-tree="$source"/"$git_user"/"$bare" pull --rebase origin master
     else
       echo "Project ${all_git_repos[n]} not present. Cloning now..."
-      git_shallow_clone "$url" "$source"/"$bare"
+      git_shallow_clone "$url" "$source"/"$git_user"/"$bare"
       echo "Project ${all_git_repos[n]} cloned!"
     fi
     echo
@@ -98,27 +105,28 @@ show_last_repo_commits(){
     url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
+    git_user=$(echo "${url//// }"| awk '{print $3}')
 
     print_line
 
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
-    if [ -d "$source"/"$bare" ]; then
-      git --git-dir="$source"/"$bare"/.git \
-        --work-tree="$source"/"$bare" \
+    if [ -d "$source"/"$git_user"/"$bare" ]; then
+      git --git-dir="$source"/"$git_user"/"$bare"/.git \
+        --work-tree="$source"/"$git_user"/"$bare" \
         log -1 \
         --pretty=format:"Commit: %Cred%h%nLast commit was %ar: [ %Cblue%ad ]%nMessage: [%Cgreen%s]%nAuthor: %Cred%aN %Cblue<%ae>"
-      git_remote_update "$source"/"$bare" > /dev/null 2>&1
+      git_remote_update "$source"/"$git_user"/"$bare" > /dev/null 2>&1
       echo -n "Project branch status: "
-      git --git-dir="$source"/"$bare"/.git \
-        --work-tree="$source"/"$bare" status
+      git --git-dir="$source"/"$git_user"/"$bare"/.git \
+        --work-tree="$source"/"$git_user"/"$bare" status
       else
-        echo "Issue! [${source}/${bare}] does not exist in local path [Use ${prog} -c to add]"
+        echo "Issue! [${source}/${git_user}/${bare}] does not exist in local path [Use ${prog} -c to add]"
     fi
   done
 }
 
 
-show_official_releases(){
+download_official_releases(){
   # Permutation of this curl command
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases/latest | grep browser_download_url| awk '{print $2}'
   total=${#github_projects[*]}
@@ -128,16 +136,13 @@ show_official_releases(){
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
+    git_user=$(echo "${url//// }"| awk '{print $3}')
 
     print_line
 
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     # convert remote origin to release URI
-    release_api_tag=$( git --git-dir="$source"/"$bare"/.git \
-          --work-tree="$source"/"$bare" \
-          remote get-url --all origin|\
-          head -1 |\
-          sed 's/github.com/api.github.com\/repos/g')
+    release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
     list=$(mktemp)
 
@@ -152,13 +157,13 @@ show_official_releases(){
     # Download these releases!
     for files in $( cat $list )
     do
-      download_github_release "$files" "$bare"/official-releases
+      download_github_release "$files" "$git_user"/"$bare"/official-releases
     done
   done
 }
 
 
-show_bleeding_edge_releases(){
+download_bleeding_edge_releases(){
   # TODO: Use jq to parse for anything not marked as release - this prevents duplicate downloads
   # Permutation of this curl command
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
@@ -178,14 +183,14 @@ show_bleeding_edge_releases(){
     url=${github_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
+    git_user=$(echo "${url//// }"| awk '{print $3}')
+
     print_line
-    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
+
+    echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} (${git_user}).."
+
     # convert remote origin to release URI
-    release_api_tag=$( git --git-dir="$source"/"$bare"/.git \
-          --work-tree="$source"/"$bare" \
-          remote get-url --all origin|\
-          head -1 |\
-          sed 's/github.com/api.github.com\/repos/g')
+    release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
     list=$(mktemp)
 
@@ -201,11 +206,11 @@ show_bleeding_edge_releases(){
     # Download these releases!
     for files in $( cat $list )
     do
-      download_github_release "$files" "$bare"/all-releases
+      download_github_release "$files" "$git_user"/"$bare"/all-releases
     done
   done
 
-  # Start with github
+  # move on to bitbucket
   total=${#bitbucket_projects[*]}
   echo
   printf "Step: bitbucket.org - [${#bitbucket_projects[*]}] repo(s) . . .\n"
@@ -214,6 +219,8 @@ show_bleeding_edge_releases(){
     url=${bitbucket_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
+    git_user=$(echo "${url//// }"| awk '{print $3}')
+
     print_line
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
     # convert remote origin to release URI
@@ -232,7 +239,7 @@ show_bleeding_edge_releases(){
     # Download these releases!
     for files in $( cat $list )
     do
-      download_github_release "$files" "$bare"/all-releases
+      download_github_release "$files" "$git_user"/"$bare"/all-releases
     done
   done
 }
@@ -303,7 +310,7 @@ fi
 setup_github_creds
 
 # This is for file globbing and array setting
-IFS=$'\r\n' GLOBIGNORE='*'
+#IFS=$'\r\n' GLOBIGNORE='*'
 
 # Parse config file
 section=github
@@ -335,7 +342,7 @@ while getopts :bchlrsu option; do
         exit;;
     b)
         echo "Checking for bleeding edge releases"
-        show_bleeding_edge_releases
+        download_bleeding_edge_releases
         exit;;
     h)
         print_usage
@@ -345,7 +352,7 @@ while getopts :bchlrsu option; do
         exit;;
     r)
         echo "Show official releases on github projects"
-        show_official_releases
+        download_official_releases
         exit;;
     s)
         echo "Show last commit entry for all repos"
