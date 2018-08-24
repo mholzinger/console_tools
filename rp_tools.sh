@@ -41,7 +41,7 @@ download_github_release(){
   if [ ! -f "$release"/"$project"/"$tag"/"$filename" ]; then
     wget -q --show-progress "$url" -P "$release"/"$project"/"$tag"
   else
-    echo "File exists! Skipping! [ ./$release/$project/$filename ]"
+    echo "File already exists! Skipping! [ ./$release/$project/$tag/$filename ]"
   fi
 }
 
@@ -128,7 +128,7 @@ show_last_repo_commits(){
 
 download_official_releases(){
   # Permutation of this curl command
-  # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases/latest | grep browser_download_url| awk '{print $2}'
+  # curl -H "Authorization: token $GITHUB_TOKEN" -s "$release_api_tag"/releases/latest | jq -r '.prerelease, .assets[].browser_download_url'
   total=${#github_projects[*]}
   printf "Looking for ${#github_projects[*]} release candidates . . .\n"
   for (( n = 0; n < total; n++ ))
@@ -147,18 +147,31 @@ download_official_releases(){
     list=$(mktemp)
 
     # Use curl to fetch latest release if available
-    github_curl "$release_api_tag"/releases/latest |\
-      grep browser_download_url|\
-      awk '{print $2}' >> $list
+    github_curl "$release_api_tag"/releases/latest | \
+      jq -r \
+        '(.prerelease| tostring)? + " " + (.assets[].browser_download_url| tostring)?' \
+        >> $list
 
-    # Print list out
-    cat $list
+    test_pre_release_status=$(cat $list |awk '/^false*/')
+    # Note: The github releases api endpoint returns a keypair 'prerelease: "false"'
+    # to denote whether something is flagged as release or prerelease.
+    # Here we are testing for the false flag to tell is this is not prerelease
 
-    # Download these releases!
-    for files in $( cat $list )
-    do
-      download_github_release "$files" "$git_user"/"$bare"/official-releases
-    done
+    if ! [ "x$test_pre_release_status" = "x"  ]; then
+      echo "[`wc -l < $list`] - release candidate file(s) listed"
+
+      # Print list out
+      cat $list | awk '{print "Remote file : " $NF}'
+
+      # Download these releases!
+      for files in $( cat $list | awk '{print $NF}')
+      do
+        download_github_release "$files" "$git_user"/"$bare"/official-releases
+      done
+    else
+      echo "Info: No release downloads found"
+    fi
+
   done
 }
 
@@ -315,7 +328,7 @@ source=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
 config_sanity
 
 # Main processing loop
-while getopts :bchlrsuz option; do
+while getopts :bchlrsu option; do
   case "${option}" in
     c)
         echo "Cloning all specified project repos into current directory"
@@ -341,9 +354,6 @@ while getopts :bchlrsuz option; do
         exit;;
     u)
         update_listed_git_repos
-        exit;;
-    z)
-        z_download
         exit;;
     *)
         # Evaluate passed parameters, if none display DNS and exit with help statement
