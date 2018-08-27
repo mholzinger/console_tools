@@ -5,11 +5,6 @@ config=./settings.txt
 # THIS SCRIPT
 prog=${0##*/}
 
-print_line(){
-  printf '.%.0s' {1..80}
-  echo
-}
-
 
 print_usage()
 {
@@ -19,6 +14,21 @@ print_usage()
     exit;
 }
 
+
+print_line(){
+  printf '.%.0s' {1..80}
+  echo
+}
+
+
+print_download_list()
+{
+  list="$1"
+  message="$2"
+
+  echo "[`wc -l < $list`] - "$message" file(s) listed"
+  cat "$list" | awk '{print "-> " $NF}'
+}
 
 # Git commands
 git_shallow_clone(){
@@ -46,11 +56,12 @@ clone_repos(){
 
     # Hack to get username
     git_user=$(echo "${url//// }"| awk '{print $3}')
+    git_path=$(echo "$source"/"$git_user"/"$bare")
 
-    if [ -d "$source"/"$git_user"/"$bare" ]; then
-        echo "Info: [$source/$git_user/$bare] already present -- Action: skipping"
+    if [ -d "$git_path" ]; then
+        echo "Info: [$git_path] already present -- Action: skipping"
       else
-        git_shallow_clone "$url"  "$source"/"$git_user"/"$bare"
+        git_shallow_clone "$url"  "$git_path"
     fi
   done
 }
@@ -68,13 +79,14 @@ update_listed_git_repos(){
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
+    git_path=$(echo "$source"/"$git_user"/"$bare")
 
-    if [ -d "$source"/"$git_user"/"$bare" ]; then
-      git --git-dir="$source"/"$git_user"/"$bare"/.git \
-        --work-tree="$source"/"$git_user"/"$bare" pull --rebase origin master
+    if [ -d "$git_path" ]; then
+      git --git-dir="$git_path"/.git \
+        --work-tree="$git_path" pull --rebase origin master
     else
       echo "Project ${all_git_repos[n]} not present. Cloning now..."
-      git_shallow_clone "$url" "$source"/"$git_user"/"$bare"
+      git_shallow_clone "$url" "$git_path"
       echo "Project ${all_git_repos[n]} cloned!"
     fi
     echo
@@ -92,21 +104,22 @@ show_last_repo_commits(){
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
+    git_path=$(echo "$source"/"$git_user"/"$bare")
 
     print_line
 
     echo "Checking [ `echo $n+1|bc`/$total ] - ${bare} .."
-    if [ -d "$source"/"$git_user"/"$bare" ]; then
-      git --git-dir="$source"/"$git_user"/"$bare"/.git \
-        --work-tree="$source"/"$git_user"/"$bare" \
+    if [ -d "$git_path" ]; then
+      git --git-dir="$git_path"/.git \
+        --work-tree="$git_path" \
         log -1 \
         --pretty=format:"Commit: %Cred%h%nLast commit was %ar: [ %Cblue%ad ]%nMessage: [%Cgreen%s]%nAuthor: %Cred%aN %Cblue<%ae>"
-      git_remote_update "$source"/"$git_user"/"$bare" > /dev/null 2>&1
+      git_remote_update "$git_path" > /dev/null 2>&1
       echo -n "Project branch status: "
-      git --git-dir="$source"/"$git_user"/"$bare"/.git \
-        --work-tree="$source"/"$git_user"/"$bare" status
+      git --git-dir="$git_path"/.git \
+        --work-tree="$git_path" status
       else
-        echo "Issue! [${source}/${git_user}/${bare}] does not exist in local path [Use ${prog} -c to add]"
+        echo "Issue! [${git_path}] does not exist in local path [Use ${prog} -c to add]"
     fi
   done
 }
@@ -126,7 +139,7 @@ download_official_releases(){
 
     echo "Checking [ `echo $n+1|bc`/$total ]- ${bare} (${git_user}).."
 
-    # ------- logical loop for processing github uri's ------- #
+    # ------- logic section for processing github uri's ------- #
     if [[ "$url" = *"github"* ]]; then
       # convert remote origin to release URI
       release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
@@ -146,10 +159,7 @@ download_official_releases(){
       # to denote whether something is flagged as release or prerelease.
       # Here we are testing for the false flag to tell is this is not prerelease
       if [  -n "$test_pre_release_status"  ]; then
-        echo "[`wc -l < $list`] - release candidate file(s) listed"
-
-        # Print list out
-        cat $list | awk '{print "Remote file : " $NF}'
+        print_download_list $list "release candidate"
 
         # Download these releases!
         cat $list | while read status uploaded_tag files
@@ -158,7 +168,7 @@ download_official_releases(){
           # `CCYY-MM-DD` from format: `2018-08-06T05:10:33Z`
           created_on=$(echo $uploaded_tag | cut -d 'T' -f 1)
 
-          # download_github_release <URL> <git_user>/<project_name>/<release_folder_name> <created_on_tag>
+          # usage: download_github_release <URL> <git_user>/<project_name>/<release_folder_name> <created_on_tag>
           download_github_release "$files" "$git_user"/"$bare"/release "$created_on"
         done
       else
@@ -222,10 +232,7 @@ download_bleeding_edge_releases(){
       test_pre_release_status=$(cat $list |awk '/^true*/')
 
       if [  -n "$test_pre_release_status"  ]; then
-        echo "[`wc -l < $list`] - pre-release candidate file(s) listed"
-
-        # Print list out
-        cat $list | awk '{print "Remote file : " $NF}'
+        print_download_list $list "pre-release candidate"
 
         # Download these releases!
         cat $list | while read status uploaded_tag files
@@ -275,7 +282,7 @@ download_github_release(){
   if [ ! -f "$path"/"$filename" ]; then
     wget -q --show-progress "$url" -P "$path"
   else
-    echo "File already exists! Skipping! [ ./$path/$filename ]"
+    echo "Target exists! Skipping! [ ./$path/$filename ]"
   fi
 }
 
@@ -298,11 +305,7 @@ download_bitbucket_release(){
   # Test to see our list has been populated by our curl call
   # If this has something in it, act on the list
   if [ -s $list ]; then
-
-    echo "[`wc -l < $list`] - bitbucket.org file(s) listed"
-
-    # Print list out
-    cat $list | awk '{print "Remote file : " $NF}'
+    print_download_list $list "bitbucket.org"
 
     # Download these releases!
     cat $list | while read uploaded_tag files
@@ -314,13 +317,13 @@ download_bitbucket_release(){
       # Remove some basic HTML formatting so we can test for a filename
       # existing in our path by replaceing '%20' with a space char
       filename=$(basename "$files"| sed 's/\%20/\ /g')
+      path=$(echo "$release"/"$project"/"$created_on")
 
       # Test to see whether or not file exists before proceeding
-      if [ ! -f "$release"/"$project"/"$created_on"/"$filename" ]; then
-        wget -q --show-progress "$files" -P "$release"/"$project"/"$created_on"
+      if [ ! -f "$path"/"$filename" ]; then
+        wget -q --show-progress "$files" -P "$path"
       else
-        echo "File already exists! Skipping! " \
-          "[ ./"$release"/"$project"/"$created_on"/"$filename" ]"
+        echo "Target exists! Skipping! [ ./"$path"/"$filename" ]"
       fi
     done
   else
