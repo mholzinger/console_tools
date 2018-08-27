@@ -269,11 +269,13 @@ download_github_release(){
   # Hack to remove filename from url string and grab preceding github tag
   tag=$(echo $url |sed s/$filename//g | tr '/' ' '|awk '{print $NF}')
 
+  path=$( echo "$release"/"$project"/"$tag"_"$created_on")
+
   # Test to see file exists before download
-  if [ ! -f "$release"/"$project"/"$tag"/"$filename" ]; then
-    wget -q --show-progress "$url" -P "$release"/"$project"/"$tag"_"$created_on"
+  if [ ! -f "$path"/"$filename" ]; then
+    wget -q --show-progress "$url" -P "$path"
   else
-    echo "File already exists! Skipping! [ ./$release/$project/$tag/$filename ]"
+    echo "File already exists! Skipping! [ ./$path/$filename ]"
   fi
 }
 
