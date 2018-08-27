@@ -32,20 +32,6 @@ git_remote_update(){
 }
 
 
-download_github_release(){
-  url=$(echo $1 | sed 's/"//g')
-  project="$2"
-
-  filename=$(basename "$url")
-  tag=$(echo $url |sed s/$filename//g | tr '/' ' '|awk '{print $NF}')
-  if [ ! -f "$release"/"$project"/"$tag"/"$filename" ]; then
-    wget -q --show-progress "$url" -P "$release"/"$project"/"$tag"
-  else
-    echo "File already exists! Skipping! [ ./$release/$project/$tag/$filename ]"
-  fi
-}
-
-
 # Main project commands
 clone_repos(){
   total=${#all_git_repos[*]}
@@ -127,13 +113,11 @@ show_last_repo_commits(){
 
 
 download_official_releases(){
-  # Permutation of this curl command
-  # curl -H "Authorization: token $GITHUB_TOKEN" -s "$release_api_tag"/releases/latest | jq -r '.prerelease, .assets[].browser_download_url'
-  total=${#github_projects[*]}
-  printf "Looking for ${#github_projects[*]} release candidates . . .\n"
+  total=${#all_git_repos[*]}
+  printf "Looking for ${#all_git_repos[*]} release candidates . . .\n"
   for (( n = 0; n < total; n++ ))
   do
-    url=${github_projects[n]}
+    url=${all_git_repos[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -141,35 +125,55 @@ download_official_releases(){
     print_line
 
     echo "Checking [ `echo $n+1|bc`/$total ]- ${bare} (${git_user}).."
-    # convert remote origin to release URI
-    release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
-    list=$(mktemp)
+    # ------- logical loop for processing github uri's ------- #
+    if [[ "$url" = *"github"* ]]; then
+      # convert remote origin to release URI
+      release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
-    # Use curl to fetch latest release if available
-    github_curl "$release_api_tag"/releases/latest | \
-      jq -r \
-        '(.prerelease| tostring)? + " " + (.assets[].browser_download_url| tostring)?' \
-        >> $list
+      list=$(mktemp)
 
-    test_pre_release_status=$(cat $list |awk '/^false*/')
-    # Note: The github releases api endpoint returns a keypair 'prerelease: "false"'
-    # to denote whether something is flagged as release or prerelease.
-    # Here we are testing for the false flag to tell is this is not prerelease
+      # Use curl to fetch latest release if available
+      # curl -H "Authorization: token $GITHUB_TOKEN" -s "$release_api_tag"/releases/latest | jq -r '.prerelease, .assets[].browser_download_url'
+      github_curl "$release_api_tag"/releases/latest | \
+        jq -r '(.prerelease| tostring)? + " " + (.created_at)? +
+          " " + (.assets[].browser_download_url| tostring)?' \
+          >> $list
 
-    if ! [ "x$test_pre_release_status" = "x"  ]; then
-      echo "[`wc -l < $list`] - release candidate file(s) listed"
+      test_pre_release_status=$(cat $list |awk '/^false*/')
 
-      # Print list out
-      cat $list | awk '{print "Remote file : " $NF}'
+      # Note: The github releases api endpoint returns a keypair 'prerelease: "false"'
+      # to denote whether something is flagged as release or prerelease.
+      # Here we are testing for the false flag to tell is this is not prerelease
+      if [  -n "$test_pre_release_status"  ]; then
+        echo "[`wc -l < $list`] - release candidate file(s) listed"
 
-      # Download these releases!
-      for files in $( cat $list | awk '{print $NF}')
-      do
-        download_github_release "$files" "$git_user"/"$bare"/official-releases
-      done
-    else
-      echo "Info: No release downloads found"
+        # Print list out
+        cat $list | awk '{print "Remote file : " $NF}'
+
+        # Download these releases!
+        cat $list | while read status uploaded_tag files
+        do
+          # Cheap hack to shorten the .created_at to folder friendly name -
+          # `CCYY-MM-DD` from format: `2018-08-06T05:10:33Z`
+          created_on=$(echo $uploaded_tag | cut -d 'T' -f 1)
+
+          # download_github_release <URL> <git_user>/<project_name>/<release_folder_name> <created_on_tag>
+          download_github_release "$files" "$git_user"/"$bare"/release "$created_on"
+        done
+      else
+        echo "Info: No release downloads found"
+      fi
+
+    # ------- logical loop for processing bitbucket uri's ------- #
+    elif [[ "$url" = *"bitbucket"* ]]; then
+
+    # Bitbucket doesn't follow the github [release/pre-release] convention
+    # We're using all-releases as our default
+    download_bitbucket_release "$url" "$git_user"/"$bare"/release
+
+    elif [[ "$url" = *"gitlab"* ]]; then
+      echo "gitlab"
     fi
 
   done
@@ -177,7 +181,6 @@ download_official_releases(){
 
 
 download_bleeding_edge_releases(){
-  # TODO: Use jq to parse for anything not marked as release - this prevents duplicate downloads
   # Permutation of this curl command
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
 
@@ -207,35 +210,121 @@ download_bleeding_edge_releases(){
       # convert remote origin to release URI
       release_api_tag=$( echo "$url" |sed 's/github.com/api.github.com\/repos/g')
 
-      # Use curl to fetch latest release if available
-      github_curl "$release_api_tag"/releases |\
-        jq '.[0]' -r |\
-        grep browser_download_url|\
-        awk '{print $NF}' >> $list
+      # Use curl to fetch pre-release if available
+      github_curl "$release_api_tag"/releases | jq -r \
+        '.[0] | (.prerelease|tostring)? + " " + (.created_at)? +
+          " " +(.assets[].browser_download_url|tostring)?' \
+          >> $list
 
+      # Note: The github releases api endpoint returns a keypair 'prerelease: "true"'
+      # to denote whether something is flagged as release or prerelease.
+      # Here we are testing for the false flag to tell is this is not prerelease
+      test_pre_release_status=$(cat $list |awk '/^true*/')
+
+      if [  -n "$test_pre_release_status"  ]; then
+        echo "[`wc -l < $list`] - pre-release candidate file(s) listed"
+
+        # Print list out
+        cat $list | awk '{print "Remote file : " $NF}'
+
+        # Download these releases!
+        cat $list | while read status uploaded_tag files
+        do
+          # Cheap hack to shorten the .created_at to folder friendly name -
+          # `CCYY-MM-DD` from format: `2018-08-06T05:10:33Z`
+          created_on=$(echo $uploaded_tag | cut -d 'T' -f 1)
+
+          # download_github_release <URL> <git_user>/<project_name>/<release_folder_name> <created_on_tag>
+          download_github_release "$files" "$git_user"/"$bare"/beta "$created_on"
+        done
+      else
+        echo "Info: No pre-release (bleeding edge) downloads found"
+      fi
+
+    # ------- section for processing bitbucket uri's ------- #
     elif [[ "$url" = *"bitbucket"* ]]; then
       # convert remote origin to release URI
       release_api_tag=$( echo $url |\
-          sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
+        sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
 
-          # Use curl to fetch latest release if available
-          curl -s -L "$release_api_tag"/downloads |\
-            jq '.values[].links[].href' >> $list
+      # Bitbucket doesn't follow the github [release/pre-release] convention
+      # We're using all-releases as our default
+      download_bitbucket_release "$url" "$git_user"/"$bare"/release
 
     elif [[ "$url" = *"gitlab"* ]]; then
       echo "gitlab"
     fi
 
+  done
+}
+
+
+download_github_release(){
+  url=$(echo $1 | sed 's/"//g')
+  project="$2"
+  created_on="$3"
+
+  filename=$(basename "$url")
+
+  # Hack to remove filename from url string and grab preceding github tag
+  tag=$(echo $url |sed s/$filename//g | tr '/' ' '|awk '{print $NF}')
+
+  # Test to see file exists before download
+  if [ ! -f "$release"/"$project"/"$tag"/"$filename" ]; then
+    wget -q --show-progress "$url" -P "$release"/"$project"/"$tag"_"$created_on"
+  else
+    echo "File already exists! Skipping! [ ./$release/$project/$tag/$filename ]"
+  fi
+}
+
+
+download_bitbucket_release(){
+  url=$(echo $1 | sed 's/"//g')
+  project="$2"
+
+  # convert remote origin to release URI
+  release_api_tag=$( echo $url |\
+    sed 's/bitbucket.org/api.bitbucket.org\/2.0\/repositories/g')
+
+   list=$(mktemp)
+
+   # Use curl to fetch latest release if available
+  curl -s -L "$release_api_tag"/downloads|\
+    jq -r '.values[0]? | (.created_on?|tostring) + " " + (.links[].href?|tostring)' \
+      >> $list
+
+  # Test to see our list has been populated by our curl call
+  # If this has something in it, act on the list
+  if [ -s $list ]; then
+
+    echo "[`wc -l < $list`] - bitbucket.org file(s) listed"
+
     # Print list out
-    cat $list
+    cat $list | awk '{print "Remote file : " $NF}'
 
     # Download these releases!
-    for files in $( cat $list )
+    cat $list | while read uploaded_tag files
     do
-      download_github_release "$files" "$git_user"/"$bare"/all-releases
-    done
+      # Cheap hack to shorten the .created_on to folder friendly name -
+      # `CCYY-MM-DD` from format: `2018-08-19T21:57:47.108457+00:00`
+      created_on=$(echo $uploaded_tag | cut -d 'T' -f 1)
 
-  done
+      # Remove some basic HTML formatting so we can test for a filename
+      # existing in our path by replaceing '%20' with a space char
+      filename=$(basename "$files"| sed 's/\%20/\ /g')
+
+      # Test to see whether or not file exists before proceeding
+      if [ ! -f "$release"/"$project"/"$created_on"/"$filename" ]; then
+        wget -q --show-progress "$files" -P "$release"/"$project"/"$created_on"
+      else
+        echo "File already exists! Skipping! " \
+          "[ ./"$release"/"$project"/"$created_on"/"$filename" ]"
+      fi
+    done
+  else
+    # '$list' is empty, nothing to download
+    echo "Info: No recent releases for download listed for this project"
+  fi
 }
 
 
@@ -244,7 +333,8 @@ setup_github_creds(){
   if [ -f "$HOME/.netrc" ]; then
     export GITHUB_TOKEN=$(grep github.com "$HOME"/.netrc|awk '{print $NF}')
   else
-    echo "No github token found for user, calls to github will be unauthenticated, which may be rate limited"
+    echo "No github token found for user, calls to github will be " \
+      "unauthenticated, which may be rate limited"
   fi
 }
 
@@ -303,9 +393,6 @@ fi
 
 setup_github_creds
 
-# This is for file globbing and array setting
-#IFS=$'\r\n' GLOBIGNORE='*'
-
 # Parse config file
 section=github
 github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
@@ -331,11 +418,9 @@ config_sanity
 while getopts :bchlrsu option; do
   case "${option}" in
     c)
-        echo "Cloning all specified project repos into current directory"
         clone_repos
         exit;;
     b)
-        echo "Checking for bleeding edge releases"
         download_bleeding_edge_releases
         exit;;
     h)
@@ -345,11 +430,9 @@ while getopts :bchlrsu option; do
         list_repos
         exit;;
     r)
-        echo "Show official releases on github projects"
         download_official_releases
         exit;;
     s)
-        echo "Show last commit entry for all repos"
         show_last_repo_commits
         exit;;
     u)
