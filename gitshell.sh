@@ -321,7 +321,12 @@ download_bitbucket_release(){
 
       # Test to see whether or not file exists before proceeding
       if [ ! -f "$path"/"$filename" ]; then
-        wget -q --show-progress "$files" -P "$path"
+      #  wget -q \
+      #    --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0" \
+      #    --show-progress "$files" \
+      #    -P "$path"
+        wget_with_useragent "$files" "$path"
+
       else
         echo "Target exists! Skipping! [ ./"$path"/"$filename" ]"
       fi
@@ -352,6 +357,16 @@ github_curl(){
   fi
 }
 
+
+wget_with_useragent(){
+  files="$1"
+  path="$2"
+
+  wget -q \
+    --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0" \
+    --show-progress "$files" \
+    --directory-prefix "$path"
+}
 
 config_sanity(){
   #TODO: Fix section parsing
