@@ -30,6 +30,7 @@ print_download_list()
   cat "$list" | awk '{print "-> " $NF}'
 }
 
+
 # Git commands
 git_shallow_clone(){
   git clone --depth=1 "$1" "$2"
@@ -44,13 +45,13 @@ git_remote_update(){
 
 # Main project commands
 clone_repos(){
-  total=${#all_git_repos[*]}
-  printf "${#all_git_repos[*]} github projects listed ..\n"
+  total=${#git_projects[*]}
+  printf "${#git_projects[*]} github projects listed ..\n"
   for (( n = 0; n < total; n++ ))
   do
     print_line
-    echo "Testing for [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
-    url=${all_git_repos[n]}
+    echo "Testing for [ `echo $n+1|bc`/$total ] - ${git_projects[n]}"
+    url=${git_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
 
@@ -69,13 +70,13 @@ clone_repos(){
 
 update_listed_git_repos(){
 
-  total=${#all_git_repos[*]}
-  printf "${#all_git_repos[*]} github projects . . .\n"
+  total=${#git_projects[*]}
+  printf "${#git_projects[*]} github projects . . .\n"
 
   for (( n = 0; n < total; n++ ))
   do
-    echo "Updating project [ `echo $n+1|bc`/$total ] - ${all_git_repos[n]}"
-    url=${all_git_repos[n]}
+    echo "Updating project [ `echo $n+1|bc`/$total ] - ${git_projects[n]}"
+    url=${git_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -85,9 +86,9 @@ update_listed_git_repos(){
       git --git-dir="$git_path"/.git \
         --work-tree="$git_path" pull --rebase origin master
     else
-      echo "Project ${all_git_repos[n]} not present. Cloning now..."
+      echo "Project ${git_projects[n]} not present. Cloning now..."
       git_shallow_clone "$url" "$git_path"
-      echo "Project ${all_git_repos[n]} cloned!"
+      echo "Project ${git_projects[n]} cloned!"
     fi
     echo
   done
@@ -95,12 +96,12 @@ update_listed_git_repos(){
 
 
 show_last_repo_commits(){
-  total=${#all_git_repos[*]}
-  printf "Looking for ${#all_git_repos[*]} github projects . . .\n"
+  total=${#git_projects[*]}
+  printf "Looking for ${#git_projects[*]} github projects . . .\n"
 
   for (( n = 0; n < total; n++ ))
   do
-    url=${all_git_repos[n]}
+    url=${git_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -126,11 +127,11 @@ show_last_repo_commits(){
 
 
 download_official_releases(){
-  total=${#all_git_repos[*]}
-  printf "Looking for ${#all_git_repos[*]} release candidates . . .\n"
+  total=${#git_projects[*]}
+  printf "Looking for ${#git_projects[*]} release candidates . . .\n"
   for (( n = 0; n < total; n++ ))
   do
-    url=${all_git_repos[n]}
+    url=${git_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -195,17 +196,17 @@ download_bleeding_edge_releases(){
   # curl -H "Authorization: token $GITHUB_TOKEN" -s https://api.github.com/repos/<githubuser>/<project>/releases|jq '.[0]' -r |grep browser_download_url|awk '{print $NF}'
 
   # State all repos
-  printf "[${#all_git_repos[*]}] repos total. "
-  printf "[${#github_projects[*]}] github projects. "
-  printf "[${#bitbucket_projects[*]}] bitbucket projects.\n\n"
+  printf "[${#git_projects[*]}] repos total. "
+  printf "[`printf "%s\n" "${git_projects[@]}"|grep -c github`] github projects. "
+  printf "[`printf "%s\n" "${git_projects[@]}"|grep -c bitbucket`] bitbucket projects.\n\n"
   printf "Looking for any most recently posted pre-release download. . .\n"
 
-  total=${#all_git_repos[*]}
-  printf "Examining - [${#all_git_repos[*]}] repo(s) . . .\n"
+  total=${#git_projects[*]}
+  printf "Examining - [${#git_projects[*]}] repo(s) . . .\n"
 
   for (( n = 0; n < total; n++ ))
   do
-    url=${all_git_repos[n]}
+    url=${git_projects[n]}
     last=${url##*/}
     bare=${last%%.git}
     git_user=$(echo "${url//// }"| awk '{print $3}')
@@ -368,6 +369,7 @@ wget_with_useragent(){
     --directory-prefix "$path"
 }
 
+
 config_sanity(){
   #TODO: Fix section parsing
   if [ -z "$source" ]; then
@@ -393,13 +395,13 @@ print_array(){
 
 
 list_repos(){
-  printf "Listing [${#all_git_repos[@]}] remote git repositories [$config]\n"
+  printf "Listing remote git repositories from [$config]\n"
   print_line
-  print_array "github_projects[@]" "github.com projects"
-  echo
-  print_array "bitbucket_projects[@]" "bitbucket.org projects"
-  echo
-  print_array "gitlab_projects[@]" "gitlab.com projects"
+  print_array "git_projects[@]" "hosted git projects"
+  print_line
+  printf "[`printf "%s\n" "${git_projects[@]}"|grep -c github`] - github.com projects\n"
+  printf "[`printf "%s\n" "${git_projects[@]}"|grep -c bitbucket`] - bitbucket.org projects\n"
+  printf "[`printf "%s\n" "${git_projects[@]}"|grep -c gitlab`] - gitlab.com projects\n"
 }
 
 
@@ -414,17 +416,8 @@ fi
 setup_github_creds
 
 # Parse config file
-section=github
-github_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
-
-section=bitbucket
-bitbucket_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
-
-section=gitlab
-gitlab_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
-
-# Merge all arrays here!
-all_git_repos=( "${github_projects[@]}" "${bitbucket_projects[@]}" )
+section=git
+git_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
 
 section=release
 release=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
