@@ -419,11 +419,8 @@ setup_github_creds
 section=git
 git_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
 
-section=release
-release=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
-
-section=source
-source=$(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d'| tail -1)
+release=$( grep '^release' $config |cut -d '=' -f 2 )
+source=$( grep '^source' $config |cut -d '=' -f 2 )
 
 config_sanity
 
