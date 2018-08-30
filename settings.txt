@@ -6,7 +6,7 @@ src
 [release]
 download
 
-[github]
+[git]
 https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database
 https://github.com/RedGuyyyy/sd2snes
 https://github.com/JakobAir/ViperGC
@@ -20,11 +20,7 @@ https://github.com/OtherCrashOverride/prosystem-odroid-go
 https://github.com/rosarior/Rocket-Launcher
 https://github.com/Schuemi/fMSX-go
 https://github.com/mad-ady/doom-odroid-go
-
-[bitbucket]
 https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator
-
-[gitlab]
 
 [big_projects]
 https://github.com/OtherCrashOverride/MicroPython_ESP32_psRAM_LoBo-odroid-go
