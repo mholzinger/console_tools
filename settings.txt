@@ -1,10 +1,8 @@
 # Path for `source` repositories
-[source]
-src
+source=src
 
 # Path for `release` downloads associated with repositories
-[release]
-download
+release=download
 
 [git]
 https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database
