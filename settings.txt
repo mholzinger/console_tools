@@ -9,6 +9,7 @@ https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database
 https://github.com/RedGuyyyy/sd2snes
 https://github.com/JakobAir/ViperGC
 https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak
+https://github.com/VitorVilela7/SnesSpeedTest
 https://github.com/blastrock/pkgj
 https://github.com/OtherCrashOverride/go-play
 https://github.com/OtherCrashOverride/odroid-go-firmware
