@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# :TODO Add depth option to set git clone depth
+# :TODO Add long format options (eg: --beta/-b)
+# :TODO Add force replace for download options (release/beta) - ie: replace existing download files (skip existing)
+# :TODO Add option to pass in config filename (currently hardcoded to `settings.txt`)
+# :TODO Add option to target single git projects for all commands
+
 config=./settings.txt
 
 # THIS SCRIPT
@@ -229,7 +235,7 @@ download_bleeding_edge_releases(){
 
       # Note: The github releases api endpoint returns a keypair 'prerelease: "true"'
       # to denote whether something is flagged as release or prerelease.
-      # Here we are testing for the false flag to tell is this is not prerelease
+      # Here we are testing for the `true` value to tell is this is a pre-release
       test_pre_release_status=$(cat $list |awk '/^true*/')
 
       if [  -n "$test_pre_release_status"  ]; then
@@ -322,25 +328,21 @@ download_bitbucket_release(){
 
       # Test to see whether or not file exists before proceeding
       if [ ! -f "$path"/"$filename" ]; then
-      #  wget -q \
-      #    --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0" \
-      #    --show-progress "$files" \
-      #    -P "$path"
         wget_with_useragent "$files" "$path"
 
-      else
-        echo "Target exists! Skipping! [ ./"$path"/"$filename" ]"
+        else
+          echo "Target exists! Skipping! [ ./"$path"/"$filename" ]"
       fi
     done
-  else
-    # '$list' is empty, nothing to download
-    echo "Info: No recent releases for download listed for this project"
+
+    else
+      # '$list' is empty, nothing to download
+      echo "Info: No recent releases for download listed for this project"
   fi
 }
 
 
 setup_github_creds(){
-  # TODO: bash dependencies tes for jq, curl, wget, git-core
   if [ -f "$HOME/.netrc" ]; then
     export GITHUB_TOKEN=$(grep github.com "$HOME"/.netrc|awk '{print $NF}')
   else
@@ -371,7 +373,7 @@ wget_with_useragent(){
 
 
 config_sanity(){
-  #TODO: Fix section parsing
+  # TODO: bash dependencies tes for jq, curl, wget, git-core
   if [ -z "$source" ]; then
     "Error: No source folder set! Set source path in $config under section [source]"
     exit
