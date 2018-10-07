@@ -19,6 +19,7 @@ https://github.com/OtherCrashOverride/prosystem-odroid-go
 https://github.com/rosarior/Rocket-Launcher
 https://github.com/Schuemi/fMSX-go
 https://github.com/mad-ady/doom-odroid-go
+https://github.com/Schuemi/c64-go
 https://github.com/rattboi/usb_transfer_tool
 https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator
 
