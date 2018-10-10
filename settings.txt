@@ -5,12 +5,18 @@ source=src
 release=download
 
 [git]
+# Smokemonster
 https://github.com/SmokeMonsterPacks/EverDrive-Packs-Lists-Database
-https://github.com/RedGuyyyy/sd2snes
-https://github.com/JakobAir/ViperGC
 https://github.com/SmokeMonsterPacks/Super-NT-Jailbreak
+# SD2SNES flashcart
+https://github.com/RedGuyyyy/sd2snes
 https://github.com/VitorVilela7/SnesSpeedTest
+https://github.com/rattboi/usb_transfer_tool
+# Gamecube
+https://github.com/JakobAir/ViperGC
+# PSVita / PSTV
 https://github.com/blastrock/pkgj
+# Odroid Go
 https://github.com/OtherCrashOverride/go-play
 https://github.com/OtherCrashOverride/odroid-go-firmware
 https://github.com/OtherCrashOverride/doom-odroid-go
@@ -20,7 +26,6 @@ https://github.com/rosarior/Rocket-Launcher
 https://github.com/Schuemi/fMSX-go
 https://github.com/mad-ady/doom-odroid-go
 https://github.com/Schuemi/c64-go
-https://github.com/rattboi/usb_transfer_tool
 https://bitbucket.org/DavidKnight247/odroid-go-spectrum-emulator
 
 [big_projects]
