@@ -419,7 +419,7 @@ setup_github_creds
 
 # Parse config file
 section=git
-git_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d"))
+git_projects=($(awk "/\[$section]/,/^$/" $config | sed -e '/^$/d' -e "/\[$section\]/d" -e '/^#/d'))
 
 release=$( grep '^release' $config |cut -d '=' -f 2 )
 source=$( grep '^source' $config |cut -d '=' -f 2 )
